@@ -27,6 +27,9 @@ class _TableScreenState extends State<TableScreen> {
   int _pot = 0;
   int _highestBet = 0;
   int _round = 1;
+  int _streak = 0;
+  int _lastCoinDelta = 0;
+  String _lastWinningHand = '';
   bool _dealing = false;
   bool _settled = false;
   String _status = '蘑菇王国牌局已开始';
@@ -174,6 +177,10 @@ class _TableScreenState extends State<TableScreen> {
 
   void _settle(GamePlayer winner) {
     final humanWon = winner.isHuman;
+    final winningHand = _logic.evaluate(winner.cards).title;
+    _lastCoinDelta = humanWon ? _pot : -_players.last.currentBet;
+    _lastWinningHand = winningHand;
+    _streak = humanWon ? _streak + 1 : 0;
     winner.coins += _pot;
     final frames = humanWon
         ? List.generate(4, (i) => 'assets/m3/anim/anim_win_${(i + 1).toString().padLeft(2, '0')}.png')
@@ -271,15 +278,16 @@ class _TableScreenState extends State<TableScreen> {
       ),
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF4CAF50), Color(0xFF1B5E20)],
+          image: DecorationImage(
+            image: AssetImage('assets/table_bg_landscape.png'),
+            fit: BoxFit.cover,
           ),
         ),
-        child: SafeArea(
-          child: Column(
-            children: [
+        child: Container(
+          color: const Color(0x66000000),
+          child: SafeArea(
+            child: Column(
+              children: [
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: PixelPanel(
@@ -346,11 +354,40 @@ class _TableScreenState extends State<TableScreen> {
                       ),
                     if (_resultFrames != null)
                       Center(
-                        child: Image.asset(
-                          _resultFrames![_resultFrameIndex],
-                          width: 260,
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              _resultFrames![_resultFrameIndex],
+                              width: 260,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              width: 280,
+                              height: 170,
+                              decoration: const BoxDecoration(
+                                image: DecorationImage(
+                                  image: AssetImage('assets/m3/dialog_bg.png'),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(_players.last.isHuman && _streak > 0 ? '连胜 x$_streak' : '本局结算', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                                    const SizedBox(height: 8),
+                                    Text('获胜牌型：$_lastWinningHand', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                    const SizedBox(height: 6),
+                                    Text('蘑菇币变化：${_lastCoinDelta >= 0 ? '+' : ''}$_lastCoinDelta'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -366,7 +403,7 @@ class _TableScreenState extends State<TableScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('你的蘑菇币：${human.coins}', style: const TextStyle(fontWeight: FontWeight.w900)),
-                          Text('房间：初级场 1-2 币', style: TextStyle(color: Colors.brown.shade700, fontWeight: FontWeight.w700)),
+                          Text('房间：初级场 1-2 币 · 连胜 $_streak', style: TextStyle(color: Colors.brown.shade700, fontWeight: FontWeight.w700)),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -379,6 +416,8 @@ class _TableScreenState extends State<TableScreen> {
                           GameActionButton(label: '弃牌', assetPath: 'assets/m2/btn_fold.png', onTap: () => unawaited(_humanAction(AiActionType.fold))),
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      const Text('Joker 牌面素材已接入；当前采用经典炸金花规则，大小王默认仅展示不入局。', style: TextStyle(fontSize: 12, color: Colors.black54)),
                       if (_settled)
                         Padding(
                           padding: const EdgeInsets.only(top: 10),
@@ -392,7 +431,8 @@ class _TableScreenState extends State<TableScreen> {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -36,6 +36,8 @@ class PlayingCard {
 
   String get assetPath => 'assets/m3/cards/deck/$rankCode$suitCode.png';
 
+  bool get isJoker => rankCode == 'J' && (suitCode == 'B' || suitCode == 'R');
+
   String get label => '$rankCode${suit.symbol}';
 
   @override

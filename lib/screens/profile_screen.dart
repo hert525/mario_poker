@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../widgets/pixel_panel.dart';
 import 'daily_quest_screen.dart';
 import 'leaderboard_screen.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -50,7 +51,12 @@ class ProfileScreen extends StatelessWidget {
             subtitle: '蘑菇王国赛道排行',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
           ),
-          const _MenuTile(icon: Icons.settings_rounded, title: '设置中心', subtitle: '音效、震动、账号与隐私'),
+          _MenuTile(
+            icon: Icons.settings_rounded,
+            title: '设置中心',
+            subtitle: '音效、震动、账号与隐私',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
         ],
       ),
     );
