@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/pixel_panel.dart';
+import 'daily_quest_screen.dart';
+import 'leaderboard_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -36,8 +38,18 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const _MenuTile(icon: Icons.emoji_events_rounded, title: '战绩统计', subtitle: '胜率、连胜、最高收益'),
-          const _MenuTile(icon: Icons.task_alt_rounded, title: '每日任务', subtitle: '签到、比牌、任务砖块奖励'),
-          const _MenuTile(icon: Icons.leaderboard_rounded, title: '排行榜', subtitle: '蘑菇王国赛道排行'),
+          _MenuTile(
+            icon: Icons.task_alt_rounded,
+            title: '每日任务',
+            subtitle: '签到、比牌、任务砖块奖励',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyQuestScreen())),
+          ),
+          _MenuTile(
+            icon: Icons.leaderboard_rounded,
+            title: '排行榜',
+            subtitle: '蘑菇王国赛道排行',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LeaderboardScreen())),
+          ),
           const _MenuTile(icon: Icons.settings_rounded, title: '设置中心', subtitle: '音效、震动、账号与隐私'),
         ],
       ),
@@ -46,11 +58,12 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.icon, required this.title, required this.subtitle});
+  const _MenuTile({required this.icon, required this.title, required this.subtitle, this.onTap});
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +71,7 @@ class _MenuTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: PixelPanel(
         child: ListTile(
+          onTap: onTap,
           leading: Icon(icon),
           title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
           subtitle: Text(subtitle),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/ai_action.dart';
 import '../models/game_player.dart';
 import '../services/ai_opponent.dart';
+import '../services/audio_service.dart';
 import '../services/zhajinhua_logic.dart';
 import '../widgets/game_action_button.dart';
 import '../widgets/mario_card.dart';
@@ -29,10 +30,14 @@ class _TableScreenState extends State<TableScreen> {
   bool _dealing = false;
   bool _settled = false;
   String _status = '蘑菇王国牌局已开始';
+  List<String>? _resultFrames;
+  int _resultFrameIndex = 0;
+  Timer? _resultTimer;
 
   @override
   void initState() {
     super.initState();
+    AudioService.instance.playTableBgm();
     _players = [
       GamePlayer(name: '路易吉', avatarAsset: 'assets/avatar_luigi.png', isHuman: false, seat: 0),
       GamePlayer(name: '桃花公主', avatarAsset: 'assets/avatar_peach.png', isHuman: false, seat: 1),
@@ -41,7 +46,18 @@ class _TableScreenState extends State<TableScreen> {
     unawaited(_startRound());
   }
 
+  @override
+  void dispose() {
+    _resultTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _startRound() async {
+    _resultTimer?.cancel();
+    _resultFrames = null;
+    _resultFrameIndex = 0;
+    await AudioService.instance.playDeal();
+
     final dealt = _logic.dealHands(playerCount: _players.length);
     setState(() {
       _dealing = true;
@@ -62,27 +78,32 @@ class _TableScreenState extends State<TableScreen> {
     });
   }
 
-  void _humanAction(AiActionType type) {
+  Future<void> _humanAction(AiActionType type) async {
     if (_dealing || _settled) return;
+    await AudioService.instance.playClick();
     final human = _players.last;
     switch (type) {
       case AiActionType.check:
         human.looked = true;
         _status = '你选择看牌，心里有底了。';
+        await AudioService.instance.playCheck();
       case AiActionType.call:
         final amount = _requiredToCall(human);
         _applyBet(human, amount == 0 ? _baseBet : amount);
         _status = '你跟注 ${amount == 0 ? _baseBet : amount} 币。';
+        await AudioService.instance.playCall();
       case AiActionType.raise:
         final amount = _requiredToCall(human) + 2;
         _applyBet(human, amount);
         _status = '你加注 $amount 币，气势拉满。';
+        await AudioService.instance.playBet();
       case AiActionType.fold:
         human.folded = true;
         _status = '你弃牌观战，先稳一手。';
+        await AudioService.instance.playFold();
     }
     setState(() {});
-    unawaited(_afterHumanAction());
+    await _afterHumanAction();
   }
 
   Future<void> _afterHumanAction() async {
@@ -100,23 +121,27 @@ class _TableScreenState extends State<TableScreen> {
         highestBet: _highestBet,
       );
       if (!mounted) return;
-      setState(() {
-        switch (action.type) {
-          case AiActionType.check:
-            player.looked = true;
-            _status = '${player.name} 看牌观望。';
-          case AiActionType.call:
-            final amount = _requiredToCall(player);
-            _applyBet(player, amount == 0 ? _baseBet : amount);
-            _status = '${player.name} 跟注。';
-          case AiActionType.raise:
-            _applyBet(player, action.raiseAmount);
-            _status = '${player.name} 加注 ${action.raiseAmount} 币。';
-          case AiActionType.fold:
-            player.folded = true;
-            _status = '${player.name} 弃牌了。';
-        }
-      });
+      switch (action.type) {
+        case AiActionType.check:
+          player.looked = true;
+          _status = '${player.name} 看牌观望。';
+          await AudioService.instance.playCheck();
+        case AiActionType.call:
+          final amount = _requiredToCall(player);
+          _applyBet(player, amount == 0 ? _baseBet : amount);
+          _status = '${player.name} 跟注。';
+          await AudioService.instance.playCall();
+        case AiActionType.raise:
+          _applyBet(player, action.raiseAmount);
+          _status = '${player.name} 加注 ${action.raiseAmount} 币。';
+          await AudioService.instance.playBet();
+        case AiActionType.fold:
+          player.folded = true;
+          _status = '${player.name} 弃牌了。';
+          await AudioService.instance.playFold();
+      }
+      if (!mounted) return;
+      setState(() {});
     }
   }
 
@@ -148,12 +173,34 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _settle(GamePlayer winner) {
+    final humanWon = winner.isHuman;
     winner.coins += _pot;
+    final frames = humanWon
+        ? List.generate(4, (i) => 'assets/m3/anim/anim_win_${(i + 1).toString().padLeft(2, '0')}.png')
+        : List.generate(4, (i) => 'assets/m3/anim/anim_lose_${(i + 1).toString().padLeft(2, '0')}.png');
+    unawaited(humanWon ? AudioService.instance.playWin() : AudioService.instance.playLose());
+    unawaited(AudioService.instance.playFlip());
+
     setState(() {
       _settled = true;
       _status = '${winner.name} 赢下本局，收走 $_pot 蘑菇币！';
       _pot = 0;
       _round += 1;
+      _resultFrames = frames;
+      _resultFrameIndex = 0;
+    });
+
+    _resultTimer?.cancel();
+    _resultTimer = Timer.periodic(const Duration(milliseconds: 140), (timer) {
+      if (!mounted || _resultFrames == null) {
+        timer.cancel();
+        return;
+      }
+      if (_resultFrameIndex >= _resultFrames!.length - 1) {
+        timer.cancel();
+        return;
+      }
+      setState(() => _resultFrameIndex++);
     });
   }
 
@@ -202,19 +249,7 @@ class _TableScreenState extends State<TableScreen> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: player.cards
-                .map(
-                  (card) => reveal || _settled || player.isHuman
-                      ? MarioCard(card: card)
-                      : Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Image.asset(
-                            'assets/m2/card_back.png',
-                            width: 72,
-                            height: 100,
-                            errorBuilder: (context, error, stackTrace) => MarioCard(card: card, faceDown: true),
-                          ),
-                        ),
-                )
+                .map((card) => reveal || _settled || player.isHuman ? MarioCard(card: card) : MarioCard(card: card, faceDown: true))
                 .toList(),
           ),
           const SizedBox(height: 6),
@@ -309,6 +344,15 @@ class _TableScreenState extends State<TableScreen> {
                           ),
                         ),
                       ),
+                    if (_resultFrames != null)
+                      Center(
+                        child: Image.asset(
+                          _resultFrames![_resultFrameIndex],
+                          width: 260,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -329,10 +373,10 @@ class _TableScreenState extends State<TableScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          GameActionButton(label: '看牌', assetPath: 'assets/m2/btn_check.png', onTap: () => _humanAction(AiActionType.check)),
-                          GameActionButton(label: '跟注', assetPath: 'assets/m2/btn_call.png', onTap: () => _humanAction(AiActionType.call)),
-                          GameActionButton(label: '加注', assetPath: 'assets/m2/btn_raise.png', onTap: () => _humanAction(AiActionType.raise)),
-                          GameActionButton(label: '弃牌', assetPath: 'assets/m2/btn_fold.png', onTap: () => _humanAction(AiActionType.fold)),
+                          GameActionButton(label: '看牌', assetPath: 'assets/m2/btn_check.png', onTap: () => unawaited(_humanAction(AiActionType.check))),
+                          GameActionButton(label: '跟注', assetPath: 'assets/m2/btn_call.png', onTap: () => unawaited(_humanAction(AiActionType.call))),
+                          GameActionButton(label: '加注', assetPath: 'assets/m2/btn_raise.png', onTap: () => unawaited(_humanAction(AiActionType.raise))),
+                          GameActionButton(label: '弃牌', assetPath: 'assets/m2/btn_fold.png', onTap: () => unawaited(_humanAction(AiActionType.fold))),
                         ],
                       ),
                       if (_settled)

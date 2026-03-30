@@ -1,9 +1,21 @@
 import 'package:flutter/material.dart';
 
+import '../services/audio_service.dart';
 import '../widgets/pixel_panel.dart';
 
-class HallScreen extends StatelessWidget {
+class HallScreen extends StatefulWidget {
   const HallScreen({super.key});
+
+  @override
+  State<HallScreen> createState() => _HallScreenState();
+}
+
+class _HallScreenState extends State<HallScreen> {
+  @override
+  void initState() {
+    super.initState();
+    AudioService.instance.playLobbyBgm();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,11 +34,11 @@ class HallScreen extends StatelessWidget {
           children: [
             PixelPanel(
               color: const Color(0xFFFFF3E0),
-              child: Padding(
-                padding: const EdgeInsets.all(18),
+              child: const Padding(
+                padding: EdgeInsets.all(18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text('🍄 Mario Poker', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
                     SizedBox(height: 8),
                     Text('欢迎来到蘑菇王国，选个场次就开炸金花。金币、砖块、水管，味儿先整起来。'),
@@ -35,8 +47,8 @@ class HallScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: const [
+            const Row(
+              children: [
                 Expanded(child: _StatBox(title: '蘑菇币', value: '12,580')),
                 SizedBox(width: 12),
                 Expanded(child: _StatBox(title: '今日连胜', value: '5')),
@@ -51,11 +63,11 @@ class HallScreen extends StatelessWidget {
             const SizedBox(height: 16),
             PixelPanel(
               color: const Color(0xFFE8F5E9),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
+              child: const Padding(
+                padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text('今日任务', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                     SizedBox(height: 8),
                     Text('• 赢下 2 场比牌\n• 登录领取 100 蘑菇币\n• 观看一次高手对局'),
